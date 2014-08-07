@@ -46,69 +46,71 @@ if node['redmine']['install_rmagick']
   end
 end
 
-#Setup database
-node['redmine']['packages'][adapter].each do |pkg|
-  package pkg
-end
-case adapter
-when "mysql"
-  include_recipe "mysql::server"
-  include_recipe "database::mysql"
-when "postgresql"
-  include_recipe "postgresql::server"
-  include_recipe "database::postgresql"
-end
-
-case adapter
-when "mysql"
-  connection_info = {
-    :host => "localhost",
-    :username => 'root',
-    :password => node['mysql']['server_root_password'].empty? ? '' : node['mysql']['server_root_password']
-  }
-when "postgresql"
-  connection_info = {
-    :host => "localhost",
-    :username => 'postgres',
-    :password => node['postgresql']['password']['postgres'].empty? ? '' : node['postgresql']['password']['postgres']
-  }
-end
-
-database node["redmine"]["databases"][environment]["database"] do
-  connection connection_info
+#Setup local database
+if node["redmine"]["databases"][environment]["host"] == 'localhost'
+  node['redmine']['packages'][adapter].each do |pkg|
+    package pkg
+  end
   case adapter
   when "mysql"
-    provider Chef::Provider::Database::Mysql
+    include_recipe "mysql::server"
+    include_recipe "database::mysql"
   when "postgresql"
-    provider Chef::Provider::Database::Postgresql
+    include_recipe "postgresql::server"
+    include_recipe "database::postgresql"
   end
-  action :create
-end
 
-database_user node["redmine"]["databases"][environment]["username"] do
-  connection connection_info
-  password   node["redmine"]["databases"][environment]["password"]
   case adapter
   when "mysql"
-    provider Chef::Provider::Database::MysqlUser
+    connection_info = {
+      :host => "localhost",
+      :username => 'root',
+      :password => node['mysql']['server_root_password'].empty? ? '' : node['mysql']['server_root_password']
+    }
   when "postgresql"
-    provider Chef::Provider::Database::PostgresqlUser
+    connection_info = {
+      :host => "localhost",
+      :username => 'postgres',
+      :password => node['postgresql']['password']['postgres'].empty? ? '' : node['postgresql']['password']['postgres']
+    }
   end
-  action :create
-end
 
-database_user node["redmine"]["databases"][environment]["username"] do
-  connection    connection_info
-  database_name node["redmine"]["databases"][environment]["database"]
-  password node["redmine"]["databases"][environment]["password"]
-  case adapter
-  when "mysql"
-    provider Chef::Provider::Database::MysqlUser
-  when "postgresql"
-    provider Chef::Provider::Database::PostgresqlUser
+  database node["redmine"]["databases"][environment]["database"] do
+    connection connection_info
+    case adapter
+    when "mysql"
+      provider Chef::Provider::Database::Mysql
+    when "postgresql"
+      provider Chef::Provider::Database::Postgresql
+    end
+    action :create
   end
-  privileges [:all]
-  action :grant
+
+  database_user node["redmine"]["databases"][environment]["username"] do
+    connection connection_info
+    password   node["redmine"]["databases"][environment]["password"]
+    case adapter
+    when "mysql"
+      provider Chef::Provider::Database::MysqlUser
+    when "postgresql"
+      provider Chef::Provider::Database::PostgresqlUser
+    end
+    action :create
+  end
+
+  database_user node["redmine"]["databases"][environment]["username"] do
+    connection    connection_info
+    database_name node["redmine"]["databases"][environment]["database"]
+    password node["redmine"]["databases"][environment]["password"]
+    case adapter
+    when "mysql"
+      provider Chef::Provider::Database::MysqlUser
+    when "postgresql"
+      provider Chef::Provider::Database::PostgresqlUser
+    end
+    privileges [:all]
+    action :grant
+  end
 end
 
 #Setup Apache
@@ -224,7 +226,6 @@ deploy_revision node['redmine']['deploy_to'] do
       group node['apache']['group']
       mode "640"
       variables(
-        :host => 'localhost',
         :db   => node['redmine']['databases'][environment],
         :rails_env => environment
       )

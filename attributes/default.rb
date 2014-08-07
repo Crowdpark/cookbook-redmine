@@ -9,6 +9,7 @@ default["redmine"]["install_rmagick"] = true
 
 # databases
 default["redmine"]["databases"]["production"]["adapter"]  = 'mysql'
+default["redmine"]["databases"]["production"]["host"]  = 'localhost'
 default["redmine"]["databases"]["production"]["database"] = 'redmine'
 default["redmine"]["databases"]["production"]["username"] = 'redmine'
 default["redmine"]["databases"]["production"]["password"] = 'password'
